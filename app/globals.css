@@ -9,4 +9,7 @@ html, body {
   height: 100%;
   background-color: #050505;
   overflow: hidden;
+  overscroll-behavior: none;
+  /* Prevent iOS scroll bounce from fighting Three.js touch events */
+  touch-action: none;
 }

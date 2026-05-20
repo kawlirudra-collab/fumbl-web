@@ -113,6 +113,23 @@ export default function ProductUI() {
       {/* Inject the SVG clip-path defs (invisible, zero-size) */}
       <TornEdgeDefs />
 
+      <style>{`
+        @media (max-width: 767px) {
+          .fumbl-panel {
+            width: 100vw !important;
+            height: 60svh !important;
+            top: auto !important;
+            bottom: 0 !important;
+            clip-path: none !important;
+            border-top: 1px solid #D9281E !important;
+            padding: 3rem 6vw 4rem !important;
+            justify-content: flex-start !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+        }
+      `}</style>
+
       <AnimatePresence>
         {activeProduct && (
           <motion.div
@@ -121,6 +138,7 @@ export default function ProductUI() {
             initial="hidden"
             animate="visible"
             exit="exit"
+            className="fumbl-panel"
             style={styles.panel}
           >
             {/* ── CATEGORY / INDEX TAG ── */}

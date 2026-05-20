@@ -322,7 +322,7 @@ export default function Scene({ startAnim, setStartAnim }) {
   return (
     <Canvas
       camera={{ position: [0, 0, -25], fov: 55 }}
-      style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}
+      style={{ position: 'absolute', inset: 0 }}
       onPointerMissed={handleMissed}
     >
       <BackgroundController />

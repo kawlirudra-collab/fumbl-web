@@ -8,10 +8,10 @@ export default function Home() {
   const [startAnim, setStartAnim] = useState(true);
 
   return (
-    <main style={{ width: '100vw', height: '100vh', position: 'relative', backgroundColor: '#050505', overflow: 'hidden' }}>
+    <main style={{ position: 'fixed', inset: 0, backgroundColor: '#050505', overflow: 'hidden' }}>
 
-      {/* 3D Scene Layer */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+      {/* 3D Scene Layer — fills the fixed parent, giving R3F a stable measured box */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <Scene startAnim={startAnim} setStartAnim={setStartAnim} />
       </div>
 
