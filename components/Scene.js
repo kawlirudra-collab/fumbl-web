@@ -98,7 +98,9 @@ function SpaceDebris({ count = 15 }) {
 // ---------------------------------------------------------------------------
 function CentralLogo({ setStartAnim, startAnim }) {
   const { scene } = useGLTF("/assets/logo.glb");
-  const { activeProduct, storyMode, setStoryMode } = useStore();
+  const activeProduct = useStore(s => s.activeProduct);
+  const storyMode = useStore(s => s.storyMode);
+  const setStoryMode = useStore(s => s.setStoryMode);
   const meshRef = useRef();
   const { camera } = useThree();
   const [hovered, setHover] = useState(false);
@@ -131,9 +133,9 @@ function CentralLogo({ setStartAnim, startAnim }) {
       if (mobile) {
         // Top-centre anchor: y derived from actual camera FOV so position is
         // always proportionally correct regardless of FOV or device height.
-        const dist = 5;
+        const dist = 8;
         const halfVFovRad = THREE.MathUtils.degToRad(state.camera.fov / 2);
-        const topY = Math.tan(halfVFovRad) * dist * 0.68;
+        const topY = Math.tan(halfVFovRad) * dist * 0.88;
         const offset = new THREE.Vector3(0, topY, -dist);
         offset.applyQuaternion(camera.quaternion);
         targetPos.copy(camera.position).add(offset);
@@ -194,7 +196,8 @@ function CentralLogo({ setStartAnim, startAnim }) {
 //          naturally as the user scrolls through the corkscrew.
 // ---------------------------------------------------------------------------
 function OurStoryAnchor() {
-  const { setStoryMode, storyMode } = useStore();
+  const setStoryMode = useStore(s => s.setStoryMode);
+  const storyMode = useStore(s => s.storyMode);
   const [hovered, setHover] = useState(false);
   const textRef = useRef();
   const { size } = useThree();
@@ -251,10 +254,29 @@ function OurStoryAnchor() {
 }
 
 // ---------------------------------------------------------------------------
+// SPARKLES + DEBRIS BLOCK
+// Hoisted to module level so React never unmounts/remounts it on re-renders.
+// Defining this inside VortexTunnel's body creates a new function reference
+// every render, causing useEffect in SpaceDebris to re-fire (respawn glitch).
+// ---------------------------------------------------------------------------
+function SparklesDebrisBlock() {
+  const { size } = useThree();
+  const mobile = size.width < 768;
+  return (
+    <>
+      <Sparkles count={mobile ? 40 : 80} scale={[15, 15, 60]} size={mobile ? 3 : 4}
+        speed={0.4} opacity={0.4} color="#D9281E" position={[0, 0, -20]} />
+      <SpaceDebris count={mobile ? 10 : 21} />
+      <OurStoryAnchor />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // STORY ATMOSPHERE
 // ---------------------------------------------------------------------------
 function LiquidStory() {
-  const { storyMode } = useStore();
+  const storyMode = useStore(s => s.storyMode);
   if (!storyMode) return null;
   return (
     <group position={[-60, 0, 0]}>
@@ -273,7 +295,10 @@ function LiquidStory() {
 // Sparkle/debris counts are halved on mobile for GPU headroom only.
 // ---------------------------------------------------------------------------
 function VortexTunnel({ showLogo, setIntroFinished, introFinished }) {
-  const { setHoveredProduct, activeProduct, setActiveProduct, storyMode } = useStore();
+  const setHoveredProduct = useStore(s => s.setHoveredProduct);
+  const activeProduct = useStore(s => s.activeProduct);
+  const setActiveProduct = useStore(s => s.setActiveProduct);
+  const storyMode = useStore(s => s.storyMode);
   const [flyOut, setFlyOut] = useState(false);
 
   useFrame((state) => {
@@ -294,20 +319,6 @@ function VortexTunnel({ showLogo, setIntroFinished, introFinished }) {
   });
 
   if (!flyOut) return null;
-
-  // Sparkle/debris counts — reduced on mobile for performance, not aesthetics.
-  const SparklesDebrisBlock = () => {
-    const { size } = useThree();
-    const mobile = size.width < 768;
-    return (
-      <>
-        <Sparkles count={mobile ? 40 : 80} scale={[15, 15, 60]} size={mobile ? 3 : 4}
-          speed={0.4} opacity={0.4} color="#D9281E" position={[0, 0, -20]} />
-        <SpaceDebris count={mobile ? 10 : 21} />
-        <OurStoryAnchor />
-      </>
-    );
-  };
 
   return (
     <group>
@@ -373,7 +384,8 @@ function VortexTunnel({ showLogo, setIntroFinished, introFinished }) {
 //   doesn't cause jarring camera snaps.
 // ---------------------------------------------------------------------------
 function Rig({ introFinished }) {
-  const { activeProduct, storyMode } = useStore();
+  const activeProduct = useStore(s => s.activeProduct);
+  const storyMode = useStore(s => s.storyMode);
   const scroll = useScroll();
   const vec = new THREE.Vector3();
   const lookAtTarget = new THREE.Vector3();
@@ -386,7 +398,10 @@ function Rig({ introFinished }) {
       const { x: px, y: py, z: pz } = activeProduct.position;
       if (mobile) {
         state.camera.position.lerp(vec.set(px, py, pz + 5), 0.06);
-        lookAtTarget.set(px, py, pz);
+        // Tilt lookAt down so product appears at ~37% from top, within the visible top-45% area.
+        const halfVFovRad = THREE.MathUtils.degToRad(state.camera.fov / 2);
+        const lookShiftY = Math.tan(halfVFovRad) * 5 * 0.25;
+        lookAtTarget.set(px, py - lookShiftY, pz);
       } else {
         state.camera.position.lerp(vec.set(px + 4, py, pz + 8), 0.04);
         lookAtTarget.set(px + 4, py, pz);
@@ -425,7 +440,8 @@ function Rig({ introFinished }) {
 // ---------------------------------------------------------------------------
 export default function Scene({ startAnim, setStartAnim }) {
   const [introFinished, setIntroFinished] = useState(false);
-  const { activeProduct, setActiveProduct } = useStore();
+  const activeProduct = useStore(s => s.activeProduct);
+  const setActiveProduct = useStore(s => s.setActiveProduct);
 
   return (
     <Canvas
