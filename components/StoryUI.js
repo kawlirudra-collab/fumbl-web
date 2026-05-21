@@ -145,6 +145,10 @@ export default function StoryUI() {
         /* hide scrollbar */
         .fumbl-scroll::-webkit-scrollbar { display: none; }
         .fumbl-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        @media (max-width: 767px) {
+          .fumbl-story-scroll { padding-top: 4.5rem !important; }
+          .fumbl-story-close  { top: 1.2rem !important; right: 1.4rem !important; }
+        }
       `}</style>
 
       <AnimatePresence>
@@ -160,6 +164,7 @@ export default function StoryUI() {
             {/* ── CLOSE ── */}
             <button
               ref={closeBtnRef}
+              className="fumbl-story-close"
               style={styles.closeBtn}
               onClick={() => setStoryMode(false)}
               onMouseEnter={handleClosEnter}
@@ -169,7 +174,7 @@ export default function StoryUI() {
             </button>
 
             {/* ── SCROLL AREA ── */}
-            <div ref={scrollRef} className="fumbl-scroll" style={styles.scrollArea}>
+            <div ref={scrollRef} className="fumbl-scroll fumbl-story-scroll" style={styles.scrollArea}>
               <div style={styles.inner}>
 
                 {/* Index tag */}
