@@ -397,10 +397,10 @@ function Rig({ introFinished }) {
     if (activeProduct) {
       const { x: px, y: py, z: pz } = activeProduct.position;
       if (mobile) {
-        state.camera.position.lerp(vec.set(px, py, pz + 5), 0.06);
+        state.camera.position.lerp(vec.set(px, py, pz + 6.5), 0.06);
         // Tilt lookAt down so product appears at ~37% from top, within the visible top-45% area.
         const halfVFovRad = THREE.MathUtils.degToRad(state.camera.fov / 2);
-        const lookShiftY = Math.tan(halfVFovRad) * 5 * 0.25;
+        const lookShiftY = Math.tan(halfVFovRad) * 6.5 * 0.25;
         lookAtTarget.set(px, py - lookShiftY, pz);
       } else {
         state.camera.position.lerp(vec.set(px + 4, py, pz + 8), 0.04);

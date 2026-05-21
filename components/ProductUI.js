@@ -201,7 +201,7 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    height: "55svh",
+    height: "44svh",
     backgroundColor: "#f2ead8",
     borderTop: "1px solid #D9281E",
     display: "flex",
