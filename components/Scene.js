@@ -36,7 +36,9 @@ function computeBaseZ(camera, size) {
   const aspect = size.width / size.height;
   const halfVFovRad = THREE.MathUtils.degToRad(camera.fov / 2);
   const halfHFovRad = Math.atan(Math.tan(halfVFovRad) * aspect);
-  return Math.max(5, (SPIRAL_RADIUS / Math.tan(halfHFovRad)) * 1.25);
+  // Extra breathing room on narrow viewports — spiral feels wide and cinematic.
+  const multiplier = size.width < 768 ? 1.5 : 1.25;
+  return Math.max(5, (SPIRAL_RADIUS / Math.tan(halfHFovRad)) * multiplier);
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +103,7 @@ function CentralLogo({ setStartAnim, startAnim }) {
   const activeProduct = useStore(s => s.activeProduct);
   const storyMode = useStore(s => s.storyMode);
   const setStoryMode = useStore(s => s.setStoryMode);
+  const preOrderMode = useStore(s => s.preOrderMode);
   const meshRef = useRef();
   const { camera } = useThree();
   const [hovered, setHover] = useState(false);
@@ -159,6 +162,10 @@ function CentralLogo({ setStartAnim, startAnim }) {
       targetQuat.copy(camera.quaternion);
       targetQuat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)));
     }
+
+    // Pre-order form active: silently phase out the logo so the close button
+    // in the HTML layer has the visual field to itself.
+    if (preOrderMode) targetScale = 0;
 
     meshRef.current.position.lerp(targetPos, 0.1);
     meshRef.current.scale.setScalar(
@@ -397,10 +404,10 @@ function Rig({ introFinished }) {
     if (activeProduct) {
       const { x: px, y: py, z: pz } = activeProduct.position;
       if (mobile) {
-        state.camera.position.lerp(vec.set(px, py, pz + 6.5), 0.06);
-        // Tilt lookAt down so product appears at ~37% from top, within the visible top-45% area.
+        state.camera.position.lerp(vec.set(px, py, pz + 10), 0.06);
+        // Tilt lookAt down — product appears at ~37% from top, within the visible top-44% area.
         const halfVFovRad = THREE.MathUtils.degToRad(state.camera.fov / 2);
-        const lookShiftY = Math.tan(halfVFovRad) * 6.5 * 0.25;
+        const lookShiftY = Math.tan(halfVFovRad) * 10 * 0.25;
         lookAtTarget.set(px, py - lookShiftY, pz);
       } else {
         state.camera.position.lerp(vec.set(px + 4, py, pz + 8), 0.04);
@@ -442,12 +449,13 @@ export default function Scene({ startAnim, setStartAnim }) {
   const [introFinished, setIntroFinished] = useState(false);
   const activeProduct = useStore(s => s.activeProduct);
   const setActiveProduct = useStore(s => s.setActiveProduct);
+  const preOrderMode = useStore(s => s.preOrderMode);
 
   return (
     <Canvas
       camera={{ position: [0, 0, -25], fov: 55 }}
       style={{ position: 'absolute', inset: 0 }}
-      onPointerMissed={() => { if (activeProduct) setActiveProduct(null); }}
+      onPointerMissed={() => { if (activeProduct && !preOrderMode) setActiveProduct(null); }}
     >
       <BackgroundController />
 

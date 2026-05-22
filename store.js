@@ -3,13 +3,15 @@ import { create } from 'zustand'
 export const useStore = create((set) => ({
   hoveredProduct: null,
   setHoveredProduct: (product) => set({ hoveredProduct: product }),
-  
+
   activeProduct: null,
-  setActiveProduct: (product) => set({ activeProduct: product, storyMode: false }), // Reset story mode when product is clicked
-  
-  // --- NEW: Story Mode State ---
+  setActiveProduct: (product) => set({ activeProduct: product, storyMode: false, preOrderMode: false }),
+
   storyMode: false,
-  setStoryMode: (isActive) => set({ storyMode: isActive, activeProduct: null }), // Reset product when story is clicked
+  setStoryMode: (isActive) => set({ storyMode: isActive, activeProduct: null }),
+
+  preOrderMode: false,
+  setPreOrderMode: (isActive) => set({ preOrderMode: isActive }),
 }))
 
 export const products = [
