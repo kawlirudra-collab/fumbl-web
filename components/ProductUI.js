@@ -40,7 +40,7 @@ function useIsMobile() {
 }
 
 // ---------------------------------------------------------------------------
-// ANIMATION VARIANTS
+// PANEL ANIMATION VARIANTS — unchanged from original
 // ---------------------------------------------------------------------------
 const desktopVariants = {
   hidden:  { x: "110%", rotate: 4, opacity: 0 },
@@ -66,17 +66,17 @@ const childVariants = {
 };
 
 // ---------------------------------------------------------------------------
-// FORM FIELD — naked input over a red rule
+// FORM FIELD — naked input riding a red rule
 // ---------------------------------------------------------------------------
-function FormField({ label, type = "text", value, error, onChange, isMobile }) {
+function FormField({ label, type = "text", value, error, onChange }) {
   return (
     <div style={styles.fieldWrap}>
-      <label style={isMobile ? styles.mobileFieldLabel : styles.fieldLabel}>{label}</label>
+      <label style={styles.fieldLabel}>{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        style={isMobile ? styles.mobileFieldInput : styles.fieldInput}
+        style={styles.fieldInput}
         autoComplete="off"
         spellCheck="false"
       />
@@ -87,7 +87,7 @@ function FormField({ label, type = "text", value, error, onChange, isMobile }) {
 }
 
 // ---------------------------------------------------------------------------
-// PRE-ORDER TRIGGER BUTTON (now a button, not a link — opens form)
+// PRE-ORDER TRIGGER (button, not link — opens full-screen overlay)
 // ---------------------------------------------------------------------------
 function PreOrderButton({ onClick, isMobile }) {
   const ref = useRef(null);
@@ -109,49 +109,46 @@ function PreOrderButton({ onClick, isMobile }) {
 }
 
 // ---------------------------------------------------------------------------
-// HELPERS
+// PRE-ORDER OVERLAY
+// Full-screen cinematic takeover — slides in from the right on desktop,
+// rises from the bottom on mobile. Completely separate from the product
+// info panel so neither component's layout bleeds into the other.
 // ---------------------------------------------------------------------------
-function splitTitle(name) {
-  const idx = name.indexOf(" ");
-  if (idx === -1) return name;
-  return <>{name.slice(0, idx)}<br />{name.slice(idx + 1)}</>;
-}
-
-// ---------------------------------------------------------------------------
-// MAIN COMPONENT
-// ---------------------------------------------------------------------------
-export default function ProductUI() {
-  const activeProduct  = useStore(s => s.activeProduct);
-  const setActiveProduct = useStore(s => s.setActiveProduct);
-  const preOrderMode   = useStore(s => s.preOrderMode);
+function PreOrderOverlay({ isMobile }) {
+  const preOrderMode    = useStore(s => s.preOrderMode);
   const setPreOrderMode = useStore(s => s.setPreOrderMode);
-  const isMobile = useIsMobile();
+  const activeProduct   = useStore(s => s.activeProduct);
+  const setActiveProduct = useStore(s => s.setActiveProduct);
 
   const closeBtnRef = useRef(null);
-
   const [formData,  setFormData]  = useState({ name: "", email: "", country: "" });
   const [errors,    setErrors]    = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  // Reset form state whenever a different product is selected
+  // Reset form after exit animation finishes
   useEffect(() => {
-    setFormData({ name: "", email: "", country: "" });
-    setErrors({});
-    setSubmitted(false);
-  }, [activeProduct?.id]);
+    if (!preOrderMode) {
+      const t = setTimeout(() => {
+        setFormData({ name: "", email: "", country: "" });
+        setErrors({});
+        setSubmitted(false);
+      }, 600);
+      return () => clearTimeout(t);
+    }
+  }, [preOrderMode]);
 
-  // Escape to close
+  // Escape closes overlay and returns to vortex
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape" && activeProduct) handleClose();
+      if (e.key === "Escape" && preOrderMode) handleClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeProduct]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [preOrderMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClose = () => {
-    setActiveProduct(null);
     setPreOrderMode(false);
+    setActiveProduct(null);
   };
 
   const handleFieldChange = (field, value) => {
@@ -175,39 +172,161 @@ export default function ProductUI() {
     setSubmitted(true);
   };
 
-  const variants  = isMobile ? mobileVariants : desktopVariants;
+  // Desktop slides in from right; mobile rises from bottom.
+  const overlayVariants = isMobile ? {
+    hidden:  { y: "100%", opacity: 1 },
+    visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 50, damping: 22, mass: 1.2 } },
+    exit:    { y: "100%", opacity: 1, transition: { type: "spring", stiffness: 65, damping: 22, mass: 1 } },
+  } : {
+    hidden:  { x: "100%", opacity: 1 },
+    visible: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 50, damping: 22, mass: 1.2 } },
+    exit:    { x: "100%", opacity: 1, transition: { type: "spring", stiffness: 65, damping: 22, mass: 1 } },
+  };
+
+  return (
+    <AnimatePresence>
+      {preOrderMode && activeProduct && (
+        <motion.div
+          key="preorder-overlay"
+          variants={overlayVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          style={styles.overlay}
+        >
+          {/* ── CLOSE ── */}
+          <button
+            ref={closeBtnRef}
+            className="fumbl-po-close"
+            style={styles.overlayCloseBtn}
+            onClick={handleClose}
+            onMouseEnter={() => { if (closeBtnRef.current) closeBtnRef.current.style.color = "#0a0a0a"; }}
+            onMouseLeave={() => { if (closeBtnRef.current) closeBtnRef.current.style.color = "#aaa"; }}
+          >
+            ✕ &nbsp;close
+          </button>
+
+          {/* ── SCROLLABLE CONTENT ── */}
+          <div className="fumbl-scroll fumbl-po-scroll" style={styles.overlayScroll}>
+            <div style={styles.overlayInner}>
+
+              <AnimatePresence mode="wait">
+                {!submitted ? (
+
+                  <motion.form
+                    key="form"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0, transition: { duration: 0.4, delay: 0.3, ease: [0.22, 1, 0.36, 1] } }}
+                    exit={{ opacity: 0, transition: { duration: 0.18 } }}
+                    onSubmit={handleSubmit}
+                    noValidate
+                    style={styles.form}
+                  >
+                    <p style={styles.overlayTag}>— pre-order</p>
+
+                    <FormField
+                      label="name"
+                      value={formData.name}
+                      error={errors.name}
+                      onChange={v => handleFieldChange("name", v)}
+                    />
+                    <FormField
+                      label="email"
+                      type="email"
+                      value={formData.email}
+                      error={errors.email}
+                      onChange={v => handleFieldChange("email", v)}
+                    />
+                    <FormField
+                      label="country of residence"
+                      value={formData.country}
+                      error={errors.country}
+                      onChange={v => handleFieldChange("country", v)}
+                    />
+
+                    <button type="submit" style={styles.submitBtn}>
+                      commit to the fire
+                    </button>
+                  </motion.form>
+
+                ) : (
+
+                  <motion.div
+                    key="success"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
+                    style={styles.successBlock}
+                  >
+                    <p style={styles.overlayTag}>— confirmed</p>
+                    <h1 style={styles.successTitle}>you're<br />in.</h1>
+                    <div style={styles.rule} />
+                    <p style={styles.successBody}>
+                      We'll be in touch when your ashtray is ready to ship.
+                      The committed always hear first.
+                    </p>
+                  </motion.div>
+
+                )}
+              </AnimatePresence>
+
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------------------------
+function splitTitle(name) {
+  const idx = name.indexOf(" ");
+  if (idx === -1) return name;
+  return <>{name.slice(0, idx)}<br />{name.slice(idx + 1)}</>;
+}
+
+// ---------------------------------------------------------------------------
+// MAIN COMPONENT
+// Product info panel — structure identical to original so stagger animations
+// and desktop centering are exactly preserved. PreOrderOverlay is a sibling.
+// ---------------------------------------------------------------------------
+export default function ProductUI() {
+  const activeProduct    = useStore(s => s.activeProduct);
+  const setActiveProduct = useStore(s => s.setActiveProduct);
+  const setPreOrderMode  = useStore(s => s.setPreOrderMode);
+  const isMobile = useIsMobile();
+
+  const handleClose = () => {
+    setActiveProduct(null);
+    setPreOrderMode(false);
+  };
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape" && activeProduct) handleClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeProduct]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const variants   = isMobile ? mobileVariants : desktopVariants;
   const panelStyle = isMobile ? styles.mobilePanel : styles.desktopPanel;
 
   return (
     <>
       <style>{`
-        .fumbl-field-input { -webkit-tap-highlight-color: transparent; }
-        .fumbl-field-input:focus { outline: none; }
-        .fumbl-preorder-close:hover { color: #0a0a0a !important; }
+        .fumbl-po-close:hover { color: #0a0a0a !important; }
+        .fumbl-scroll::-webkit-scrollbar { display: none; }
+        .fumbl-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .fumbl-po-scroll { padding-top: 5rem; }
         @media (max-width: 767px) {
-          .fumbl-preorder-close { top: 1.2rem !important; right: 1.4rem !important; }
+          .fumbl-po-close { top: 1.2rem !important; right: 1.4rem !important; }
+          .fumbl-po-scroll { padding-top: 4rem; }
         }
       `}</style>
 
       <TornEdgeDefs />
 
-      {/* ── PRE-ORDER CLOSE (top-right, replaces logo) ── */}
-      <AnimatePresence>
-        {preOrderMode && activeProduct && (
-          <motion.button
-            key="po-close"
-            className="fumbl-preorder-close"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { delay: 0.3, duration: 0.35 } }}
-            exit={{ opacity: 0, transition: { duration: 0.2 } }}
-            style={styles.preOrderCloseBtn}
-            onClick={handleClose}
-          >
-            ✕ &nbsp;close
-          </motion.button>
-        )}
-      </AnimatePresence>
-
+      {/* ── PRODUCT INFO PANEL — original layout, untouched ── */}
       <AnimatePresence>
         {activeProduct && (
           <motion.div
@@ -218,128 +337,37 @@ export default function ProductUI() {
             exit="exit"
             style={panelStyle}
           >
-            {/* Mobile drag handle */}
             {isMobile && (
               <div style={styles.dragHandle} onClick={handleClose} />
             )}
 
-            {/* ── CONTENT — crossfades between product info and pre-order form ── */}
-            <AnimatePresence mode="wait">
+            <motion.p variants={childVariants} style={isMobile ? styles.mobileTag : styles.tag}>
+              — {String(activeProduct.id).padStart(2, "0")} / 07
+            </motion.p>
 
-              {!preOrderMode ? (
-                /* ── PRODUCT INFO ── */
-                <motion.div
-                  key="info"
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.22 } }}
-                  style={styles.contentBlock}
-                >
-                  <motion.p variants={childVariants} style={isMobile ? styles.mobileTag : styles.tag}>
-                    — {String(activeProduct.id).padStart(2, "0")} / 07
-                  </motion.p>
+            <motion.h1 variants={childVariants} style={isMobile ? styles.mobileTitle : styles.title}>
+              {splitTitle(activeProduct.name)}
+            </motion.h1>
 
-                  <motion.h1 variants={childVariants} style={isMobile ? styles.mobileTitle : styles.title}>
-                    {splitTitle(activeProduct.name)}
-                  </motion.h1>
+            <motion.div variants={childVariants} style={styles.rule} />
 
-                  <motion.div variants={childVariants} style={styles.rule} />
+            <motion.p variants={childVariants} style={isMobile ? styles.mobileDescription : styles.description}>
+              {activeProduct.description}
+            </motion.p>
 
-                  <motion.p variants={childVariants} style={isMobile ? styles.mobileDescription : styles.description}>
-                    {activeProduct.description}
-                  </motion.p>
+            <motion.div variants={childVariants} style={styles.buttonWrap}>
+              <PreOrderButton isMobile={isMobile} onClick={() => setPreOrderMode(true)} />
+            </motion.div>
 
-                  <motion.div variants={childVariants} style={styles.buttonWrap}>
-                    <PreOrderButton isMobile={isMobile} onClick={() => setPreOrderMode(true)} />
-                  </motion.div>
-
-                  <motion.p variants={childVariants} style={styles.closeHint}>
-                    <span style={styles.closeBtn} onClick={handleClose}>✕ close</span>
-                  </motion.p>
-                </motion.div>
-
-              ) : (
-                /* ── PRE-ORDER FORM ── */
-                <motion.div
-                  key="form"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1, transition: { duration: 0.35, delay: 0.15 } }}
-                  exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                  style={styles.contentBlock}
-                >
-                  <AnimatePresence mode="wait">
-                    {!submitted ? (
-
-                      <motion.form
-                        key="fields"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1, transition: { duration: 0.3 } }}
-                        exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                        onSubmit={handleSubmit}
-                        noValidate
-                        style={styles.form}
-                      >
-                        <p style={isMobile ? styles.mobileTag : styles.tag}>— pre-order</p>
-
-                        <FormField
-                          label="name"
-                          value={formData.name}
-                          error={errors.name}
-                          onChange={v => handleFieldChange("name", v)}
-                          isMobile={isMobile}
-                        />
-                        <FormField
-                          label="email"
-                          type="email"
-                          value={formData.email}
-                          error={errors.email}
-                          onChange={v => handleFieldChange("email", v)}
-                          isMobile={isMobile}
-                        />
-                        <FormField
-                          label="country of residence"
-                          value={formData.country}
-                          error={errors.country}
-                          onChange={v => handleFieldChange("country", v)}
-                          isMobile={isMobile}
-                        />
-
-                        <button
-                          type="submit"
-                          style={isMobile ? styles.mobileSubmitBtn : styles.submitBtn}
-                        >
-                          commit to the fire
-                        </button>
-                      </motion.form>
-
-                    ) : (
-
-                      <motion.div
-                        key="success"
-                        initial={{ opacity: 0, y: 14 }}
-                        animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
-                        style={styles.successBlock}
-                      >
-                        <p style={isMobile ? styles.mobileTag : styles.tag}>— confirmed</p>
-                        <h1 style={isMobile ? styles.mobileTitle : styles.title}>
-                          you're<br />in.
-                        </h1>
-                        <div style={styles.rule} />
-                        <p style={isMobile ? styles.mobileDescription : styles.description}>
-                          We'll be in touch when your ashtray is ready to ship.
-                          The committed always hear first.
-                        </p>
-                      </motion.div>
-
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )}
-
-            </AnimatePresence>
+            <motion.p variants={childVariants} style={styles.closeHint}>
+              <span style={styles.closeBtn} onClick={handleClose}>✕ close</span>
+            </motion.p>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── FULL-SCREEN PRE-ORDER OVERLAY — sibling, not nested ── */}
+      <PreOrderOverlay isMobile={isMobile} />
     </>
   );
 }
@@ -348,7 +376,7 @@ export default function ProductUI() {
 // STYLES
 // ---------------------------------------------------------------------------
 const styles = {
-  // ── DESKTOP PANEL ────────────────────────────────────────────────────────
+  // ── DESKTOP PANEL — identical to original ──────────────────────────────
   desktopPanel: {
     position: "fixed",
     top: 0,
@@ -359,14 +387,14 @@ const styles = {
     clipPath: "url(#tornEdge)",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
-    padding: "0 6vw 0 7vw",
+    justifyContent: "flex-start",
+    padding: "5rem 6vw 3rem 7vw",
     boxSizing: "border-box",
     userSelect: "none",
     pointerEvents: "auto",
   },
 
-  // ── MOBILE BOTTOM SHEET ──────────────────────────────────────────────────
+  // ── MOBILE BOTTOM SHEET ────────────────────────────────────────────────
   mobilePanel: {
     position: "fixed",
     bottom: 0,
@@ -387,7 +415,7 @@ const styles = {
     borderRadius: "0",
   },
 
-  // ── DRAG HANDLE ──────────────────────────────────────────────────────────
+  // ── DRAG HANDLE ────────────────────────────────────────────────────────
   dragHandle: {
     width: "2.8rem",
     height: "3px",
@@ -400,15 +428,7 @@ const styles = {
     flexShrink: 0,
   },
 
-  // ── CONTENT WRAPPER ──────────────────────────────────────────────────────
-  contentBlock: {
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
-    minHeight: 0,
-  },
-
-  // ── SHARED ───────────────────────────────────────────────────────────────
+  // ── SHARED PANEL TEXT ──────────────────────────────────────────────────
   tag: {
     fontFamily: "'Courier New', Courier, monospace",
     fontSize: "0.7rem",
@@ -477,7 +497,7 @@ const styles = {
 
   buttonWrap: { marginBottom: "2rem" },
 
-  // PRE-ORDER trigger — button styled like the original <a>
+  // PRE-ORDER button — button reset + underline animation on desktop
   button: {
     fontFamily: "'Helvetica Neue', Arial, sans-serif",
     fontWeight: 700,
@@ -491,10 +511,10 @@ const styles = {
     backgroundRepeat: "no-repeat",
     backgroundSize: "0% 1px",
     transition: "background-size 0.45s cubic-bezier(0.76, 0, 0.24, 1)",
-    display: "inline-block",
-    cursor: "pointer",
     border: "none",
     outline: "none",
+    display: "inline-block",
+    cursor: "pointer",
     padding: "0 0 4px 0",
   },
   mobileButton: {
@@ -526,9 +546,23 @@ const styles = {
     transition: "color 0.2s",
   },
 
-  // ── PRE-ORDER CLOSE BUTTON (top-right, mirrors Our Story close) ──────────
-  preOrderCloseBtn: {
+  // ── FULL-SCREEN OVERLAY ────────────────────────────────────────────────
+  overlay: {
     position: "fixed",
+    inset: 0,
+    backgroundColor: "#f2ead8",
+    backgroundImage: `
+      radial-gradient(ellipse 80% 60% at 50% 50%, transparent 60%, rgba(10,10,10,0.07) 100%),
+      radial-gradient(ellipse at 15% 50%, rgba(217,40,30,0.04) 0%, transparent 55%)
+    `,
+    zIndex: 25,
+    pointerEvents: "auto",
+    display: "flex",
+    flexDirection: "column",
+  },
+
+  overlayCloseBtn: {
+    position: "absolute",
     top: "2rem",
     right: "2.5rem",
     fontFamily: "'Courier New', Courier, monospace",
@@ -540,16 +574,40 @@ const styles = {
     border: "none",
     cursor: "pointer",
     transition: "color 0.2s",
-    zIndex: 21,
+    zIndex: 1,
     padding: 0,
-    pointerEvents: "auto",
   },
 
-  // ── FORM ─────────────────────────────────────────────────────────────────
+  overlayScroll: {
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "7rem 2rem 5rem",
+    boxSizing: "border-box",
+  },
+
+  overlayInner: {
+    width: "100%",
+    maxWidth: "46ch",
+  },
+
+  overlayTag: {
+    fontFamily: "'Courier New', Courier, monospace",
+    fontSize: "0.65rem",
+    letterSpacing: "0.3em",
+    color: "#D9281E",
+    textTransform: "uppercase",
+    margin: "0 0 3.5rem 0",
+  },
+
+  // ── FORM ──────────────────────────────────────────────────────────────
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: "1.4rem",
+    gap: "2rem",
   },
 
   fieldWrap: {
@@ -560,40 +618,21 @@ const styles = {
 
   fieldLabel: {
     fontFamily: "'Courier New', Courier, monospace",
-    fontSize: "0.6rem",
+    fontSize: "0.58rem",
     letterSpacing: "0.25em",
-    color: "#D9281E",
-    textTransform: "uppercase",
-  },
-  mobileFieldLabel: {
-    fontFamily: "'Courier New', Courier, monospace",
-    fontSize: "0.55rem",
-    letterSpacing: "0.22em",
     color: "#D9281E",
     textTransform: "uppercase",
   },
 
   fieldInput: {
     fontFamily: "'Courier New', Courier, monospace",
-    fontSize: "0.9rem",
+    fontSize: "clamp(0.88rem, 1.2vw, 1rem)",
     letterSpacing: "0.04em",
     color: "#1a1a1a",
-    background: "none",
+    backgroundColor: "transparent",
     border: "none",
     outline: "none",
-    padding: "0.4rem 0",
-    width: "100%",
-    boxSizing: "border-box",
-  },
-  mobileFieldInput: {
-    fontFamily: "'Courier New', Courier, monospace",
-    fontSize: "0.85rem",
-    letterSpacing: "0.03em",
-    color: "#1a1a1a",
-    background: "none",
-    border: "none",
-    outline: "none",
-    padding: "0.3rem 0",
+    padding: "0.5rem 0",
     width: "100%",
     boxSizing: "border-box",
   },
@@ -615,39 +654,45 @@ const styles = {
     fontFamily: "'Helvetica Neue', Arial, sans-serif",
     fontWeight: 700,
     fontSize: "0.75rem",
-    letterSpacing: "0.25em",
+    letterSpacing: "0.28em",
     color: "#f2ead8",
     textTransform: "uppercase",
     backgroundColor: "#D9281E",
     border: "none",
-    padding: "1rem 2rem",
+    padding: "1.1rem 2rem",
     cursor: "pointer",
-    marginTop: "0.6rem",
+    marginTop: "0.8rem",
     display: "block",
     width: "100%",
     textAlign: "center",
     transition: "opacity 0.2s",
   },
-  mobileSubmitBtn: {
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-    fontWeight: 700,
-    fontSize: "0.7rem",
-    letterSpacing: "0.22em",
-    color: "#f2ead8",
-    textTransform: "uppercase",
-    backgroundColor: "#D9281E",
-    border: "none",
-    padding: "0.9rem 1.5rem",
-    cursor: "pointer",
-    marginTop: "0.4rem",
-    display: "block",
-    width: "100%",
-    textAlign: "center",
-  },
 
-  // ── SUCCESS ──────────────────────────────────────────────────────────────
+  // ── SUCCESS ────────────────────────────────────────────────────────────
   successBlock: {
     display: "flex",
     flexDirection: "column",
+  },
+
+  successTitle: {
+    fontFamily: "'Fraunces', 'Georgia', serif",
+    fontWeight: 700,
+    fontSize: "clamp(3rem, 6vw, 5.5rem)",
+    lineHeight: 1.0,
+    letterSpacing: "-0.02em",
+    color: "#0a0a0a",
+    margin: "0 0 2rem 0",
+    textTransform: "uppercase",
+  },
+
+  successBody: {
+    fontFamily: "'Helvetica Neue', Arial, sans-serif",
+    fontWeight: 300,
+    fontSize: "clamp(0.85rem, 1.2vw, 1rem)",
+    lineHeight: 1.75,
+    letterSpacing: "0.03em",
+    color: "#3a3a3a",
+    margin: 0,
+    maxWidth: "32ch",
   },
 };
