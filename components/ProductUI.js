@@ -121,9 +121,11 @@ function PreOrderOverlay({ isMobile }) {
   const setActiveProduct = useStore(s => s.setActiveProduct);
 
   const closeBtnRef = useRef(null);
-  const [formData,  setFormData]  = useState({ name: "", email: "", country: "" });
-  const [errors,    setErrors]    = useState({});
-  const [submitted, setSubmitted] = useState(false);
+  const [formData,    setFormData]    = useState({ name: "", email: "", country: "" });
+  const [errors,      setErrors]      = useState({});
+  const [submitted,   setSubmitted]   = useState(false);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [serverError, setServerError] = useState("");
 
   // Reset form after exit animation finishes
   useEffect(() => {
@@ -132,6 +134,8 @@ function PreOrderOverlay({ isMobile }) {
         setFormData({ name: "", email: "", country: "" });
         setErrors({});
         setSubmitted(false);
+        setSubmitting(false);
+        setServerError("");
       }, 600);
       return () => clearTimeout(t);
     }
@@ -165,11 +169,29 @@ function PreOrderOverlay({ isMobile }) {
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    setSubmitted(true);
+    setSubmitting(true);
+    setServerError("");
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setServerError(data.error ?? "something went wrong — try again");
+      } else {
+        setSubmitted(true);
+      }
+    } catch {
+      setServerError("network error — try again");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Desktop slides in from right; mobile rises from bottom.
@@ -244,8 +266,16 @@ function PreOrderOverlay({ isMobile }) {
                       onChange={v => handleFieldChange("country", v)}
                     />
 
-                    <button type="submit" style={styles.submitBtn}>
-                      commit to the fire
+                    {serverError && (
+                      <p style={styles.serverError}>{serverError}</p>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      style={{ ...styles.submitBtn, opacity: submitting ? 0.55 : 1 }}
+                    >
+                      {submitting ? "sending…" : "commit to the fire"}
                     </button>
                   </motion.form>
 
@@ -694,5 +724,14 @@ const styles = {
     color: "#3a3a3a",
     margin: 0,
     maxWidth: "32ch",
+  },
+
+  serverError: {
+    fontFamily: "'Courier New', Courier, monospace",
+    fontSize: "0.58rem",
+    letterSpacing: "0.15em",
+    color: "#a00",
+    textTransform: "uppercase",
+    margin: "0 0 0.5rem 0",
   },
 };
